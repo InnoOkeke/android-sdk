@@ -13,6 +13,7 @@ import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.WindowManager;
+
 import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
@@ -36,63 +37,63 @@ import static org.hamcrest.CoreMatchers.allOf;
 @LargeTest
 public class GalleryHelperTest {
 
-  private Instrumentation.ActivityResult result;
+    private Instrumentation.ActivityResult result;
 
-  @Rule
-  public ActivityTestRule<MainActivity> activityTestRule =
-      new ActivityTestRule<>(MainActivity.class);
+    @Rule
+    public ActivityTestRule<MainActivity> activityTestRule =
+            new ActivityTestRule<>(MainActivity.class);
 
-  @Before
-  public void unlockScreen() {
-    final MainActivity activity = activityTestRule.getActivity();
-    Runnable wakeUpDevice = new Runnable() {
-      public void run() {
-        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-      }
-    };
-    activity.runOnUiThread(wakeUpDevice);
-  }
-
-  @Before
-  public void setupImageUri() {
-    Resources resources = InstrumentationRegistry.getTargetContext().getResources();
-    Uri imageUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
-        resources.getResourcePackageName(R.mipmap.ic_launcher) + '/' +
-        resources.getResourceTypeName(R.mipmap.ic_launcher) + '/' +
-        resources.getResourceEntryName(R.mipmap.ic_launcher));
-
-    Intent resultData = new Intent();
-    resultData.setData(imageUri);
-    result = new Instrumentation.ActivityResult(
-        Activity.RESULT_OK, resultData);
-  }
-
-  @Before
-  public void initializeIntents() {
-    Intents.init();
-  }
-
-  @After
-  public void releaseIntents() {
-    Intents.release();
-  }
-
-  @Test
-  public void testSelectedImageIsSet() {
-
-    Matcher<Intent> expectedIntent = allOf(hasAction(Intent.ACTION_PICK),
-        hasData(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI));
-    intending(expectedIntent).respondWith(result);
-
-    Espresso.onView(withId(R.id.gallery_button)).perform(click());
-    Espresso.closeSoftKeyboard();
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
+    @Before
+    public void unlockScreen() {
+        final MainActivity activity = activityTestRule.getActivity();
+        Runnable wakeUpDevice = new Runnable() {
+            public void run() {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        };
+        activity.runOnUiThread(wakeUpDevice);
     }
-    intended(expectedIntent);
-  }
+
+    @Before
+    public void setupImageUri() {
+        Resources resources = InstrumentationRegistry.getTargetContext().getResources();
+        Uri imageUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
+                resources.getResourcePackageName(R.mipmap.ic_launcher) + '/' +
+                resources.getResourceTypeName(R.mipmap.ic_launcher) + '/' +
+                resources.getResourceEntryName(R.mipmap.ic_launcher));
+
+        Intent resultData = new Intent();
+        resultData.setData(imageUri);
+        result = new Instrumentation.ActivityResult(
+                Activity.RESULT_OK, resultData);
+    }
+
+    @Before
+    public void initializeIntents() {
+        Intents.init();
+    }
+
+    @After
+    public void releaseIntents() {
+        Intents.release();
+    }
+
+    @Test
+    public void testSelectedImageIsSet() {
+
+        Matcher<Intent> expectedIntent = allOf(hasAction(Intent.ACTION_PICK),
+                hasData(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI));
+        intending(expectedIntent).respondWith(result);
+
+        Espresso.onView(withId(R.id.gallery_button)).perform(click());
+        Espresso.closeSoftKeyboard();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        intended(expectedIntent);
+    }
 }

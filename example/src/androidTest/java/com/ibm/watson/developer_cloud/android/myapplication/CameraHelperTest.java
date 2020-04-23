@@ -35,48 +35,48 @@ import static android.support.test.espresso.matcher.ViewMatchers.withId;
 @LargeTest
 public class CameraHelperTest {
 
-  @Rule
-  public ActivityTestRule<MainActivity> activityTestRule =
-      new ActivityTestRule<MainActivity>(MainActivity.class);
+    @Rule
+    public ActivityTestRule<MainActivity> activityTestRule =
+            new ActivityTestRule<MainActivity>(MainActivity.class);
 
-  @Before
-  public void unlockScreen() {
-    final MainActivity activity = activityTestRule.getActivity();
-    Runnable wakeUpDevice = new Runnable() {
-      public void run() {
-        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-      }
-    };
-    activity.runOnUiThread(wakeUpDevice);
-  }
+    @Before
+    public void unlockScreen() {
+        final MainActivity activity = activityTestRule.getActivity();
+        Runnable wakeUpDevice = new Runnable() {
+            public void run() {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        };
+        activity.runOnUiThread(wakeUpDevice);
+    }
 
-  @Before
-  public void initializeIntents() {
-    Intents.init();
-  }
+    @Before
+    public void initializeIntents() {
+        Intents.init();
+    }
 
-  @After
-  public void releaseIntents() {
-    Intents.release();
-  }
+    @After
+    public void releaseIntents() {
+        Intents.release();
+    }
 
-  @Test
-  public void testCameraFlow() {
-    Bitmap icon = BitmapFactory.decodeResource(
-        InstrumentationRegistry.getTargetContext().getResources(),
-        R.mipmap.ic_launcher);
+    @Test
+    public void testCameraFlow() {
+        Bitmap icon = BitmapFactory.decodeResource(
+                InstrumentationRegistry.getTargetContext().getResources(),
+                R.mipmap.ic_launcher);
 
-    Intent resultData = new Intent();
-    resultData.putExtra("data", icon);
-    Instrumentation.ActivityResult result = new Instrumentation.ActivityResult(Activity.RESULT_OK, resultData);
+        Intent resultData = new Intent();
+        resultData.putExtra("data", icon);
+        Instrumentation.ActivityResult result = new Instrumentation.ActivityResult(Activity.RESULT_OK, resultData);
 
-    intending(hasAction(MediaStore.ACTION_IMAGE_CAPTURE)).respondWith(result);
+        intending(hasAction(MediaStore.ACTION_IMAGE_CAPTURE)).respondWith(result);
 
-    Espresso.onView(withId(R.id.camera_button)).perform(click());
+        Espresso.onView(withId(R.id.camera_button)).perform(click());
 
-    intended(hasAction(MediaStore.ACTION_IMAGE_CAPTURE));
-  }
+        intended(hasAction(MediaStore.ACTION_IMAGE_CAPTURE));
+    }
 
 }

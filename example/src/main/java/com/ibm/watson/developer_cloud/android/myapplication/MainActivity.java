@@ -54,364 +54,367 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity {
-  private final String TAG = "MainActivity";
+    private final String TAG = "MainActivity";
 
-  private EditText input;
-  private ImageButton mic;
-  private Button translate;
-  private ImageButton play;
-  private TextView translatedText;
-  private ImageView loadedImage;
+    private EditText input;
+    private ImageButton mic;
+    private Button translate;
+    private ImageButton play;
+    private TextView translatedText;
+    private ImageView loadedImage;
 
-  private SpeechToText speechService;
-  private TextToSpeech textService;
-  private LanguageTranslator translationService;
-  private String selectedTargetLanguage = Language.SPANISH;
+    private SpeechToText speechService;
+    private TextToSpeech textService;
+    private LanguageTranslator translationService;
+    private String selectedTargetLanguage = Language.SPANISH;
 
-  private StreamPlayer player = new StreamPlayer();
+    private StreamPlayer player = new StreamPlayer();
 
-  private CameraHelper cameraHelper;
-  private GalleryHelper galleryHelper;
-  private MicrophoneHelper microphoneHelper;
+    private CameraHelper cameraHelper;
+    private GalleryHelper galleryHelper;
+    private MicrophoneHelper microphoneHelper;
 
-  private MicrophoneInputStream capture;
-  private boolean listening = false;
+    private MicrophoneInputStream capture;
+    private boolean listening = false;
 
-  /**
-   * On create.
-   *
-   * @param savedInstanceState the saved instance state
-   */
-  @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
+    /**
+     * On create.
+     *
+     * @param savedInstanceState the saved instance state
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-    cameraHelper = new CameraHelper(this);
-    galleryHelper = new GalleryHelper(this);
-    microphoneHelper = new MicrophoneHelper(this);
+        cameraHelper = new CameraHelper(this);
+        galleryHelper = new GalleryHelper(this);
+        microphoneHelper = new MicrophoneHelper(this);
 
-    speechService = initSpeechToTextService();
-    textService = initTextToSpeechService();
-    translationService = initLanguageTranslatorService();
+        speechService = initSpeechToTextService();
+        textService = initTextToSpeechService();
+        translationService = initLanguageTranslatorService();
 
-    RadioGroup targetLanguage = findViewById(R.id.target_language);
-    input = findViewById(R.id.input);
-    mic = findViewById(R.id.mic);
-    translate = findViewById(R.id.translate);
-    play = findViewById(R.id.play);
-    translatedText = findViewById(R.id.translated_text);
-    Button gallery = findViewById(R.id.gallery_button);
-    Button camera = findViewById(R.id.camera_button);
-    loadedImage = findViewById(R.id.loaded_image);
+        RadioGroup targetLanguage = findViewById(R.id.target_language);
+        input = findViewById(R.id.input);
+        mic = findViewById(R.id.mic);
+        translate = findViewById(R.id.translate);
+        play = findViewById(R.id.play);
+        translatedText = findViewById(R.id.translated_text);
+        Button gallery = findViewById(R.id.gallery_button);
+        Button camera = findViewById(R.id.camera_button);
+        loadedImage = findViewById(R.id.loaded_image);
 
-    targetLanguage.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-      @Override
-      public void onCheckedChanged(RadioGroup group, int checkedId) {
-        switch (checkedId) {
-          case R.id.spanish:
-            selectedTargetLanguage = Language.SPANISH;
-            break;
-          case R.id.french:
-            selectedTargetLanguage = Language.FRENCH;
-            break;
-          case R.id.italian:
-            selectedTargetLanguage = Language.ITALIAN;
-            break;
-        }
-      }
-    });
+        targetLanguage.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                switch (checkedId) {
+                    case R.id.spanish:
+                        selectedTargetLanguage = Language.SPANISH;
+                        break;
+                    case R.id.french:
+                        selectedTargetLanguage = Language.FRENCH;
+                        break;
+                    case R.id.italian:
+                        selectedTargetLanguage = Language.ITALIAN;
+                        break;
+                }
+            }
+        });
 
-    input.addTextChangedListener(new EmptyTextWatcher() {
-      @Override
-      public void onEmpty(boolean empty) {
-        if (empty) {
-          translate.setEnabled(false);
-        } else {
-          translate.setEnabled(true);
-        }
-      }
-    });
+        input.addTextChangedListener(new EmptyTextWatcher() {
+            @Override
+            public void onEmpty(boolean empty) {
+                if (empty) {
+                    translate.setEnabled(false);
+                } else {
+                    translate.setEnabled(true);
+                }
+            }
+        });
 
-    mic.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        if (!listening) {
-          // Update the icon background
-          runOnUiThread(new Runnable() {
+        mic.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!listening) {
+                    // Update the icon background
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mic.setBackgroundColor(Color.GREEN);
+                        }
+                    });
+                    capture = microphoneHelper.getInputStream(true);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                speechService.recognizeUsingWebSocket(getRecognizeOptions(capture),
+                                        new MicrophoneRecognizeDelegate());
+                            } catch (Exception e) {
+                                showError(e);
+                            }
+                        }
+                    }).start();
+
+                    listening = true;
+                } else {
+                    // Update the icon background
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mic.setBackgroundColor(Color.LTGRAY);
+                        }
+                    });
+                    microphoneHelper.closeInputStream();
+                    listening = false;
+                }
+            }
+        });
+
+        translate.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                new TranslationTask().execute(input.getText().toString());
+            }
+        });
+
+        translatedText.addTextChangedListener(new EmptyTextWatcher() {
+            @Override
+            public void onEmpty(boolean empty) {
+                if (empty) {
+                    play.setEnabled(false);
+                } else {
+                    play.setEnabled(true);
+                }
+            }
+        });
+
+        play.setEnabled(false);
+
+        play.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new SynthesisTask().execute(translatedText.getText().toString());
+            }
+        });
+
+        gallery.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                galleryHelper.dispatchGalleryIntent();
+            }
+        });
+
+        camera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cameraHelper.dispatchTakePictureIntent();
+            }
+        });
+    }
+
+
+    private void showTranslation(final String translation) {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
-              mic.setBackgroundColor(Color.GREEN);
+                translatedText.setText(translation);
             }
-          });
-          capture = microphoneHelper.getInputStream(true);
-          new Thread(new Runnable() {
+        });
+    }
+
+    private void showError(final Exception e) {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
-              try {
-                speechService.recognizeUsingWebSocket(getRecognizeOptions(capture),
-                        new MicrophoneRecognizeDelegate());
-              } catch (Exception e) {
-                showError(e);
-              }
+                Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                e.printStackTrace();
+                // Update the icon background
+                mic.setBackgroundColor(Color.LTGRAY);
             }
-          }).start();
+        });
+    }
 
-          listening = true;
-        } else {
-          // Update the icon background
-          runOnUiThread(new Runnable() {
+    private void showMicText(final String text) {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
-              mic.setBackgroundColor(Color.LTGRAY);
+                input.setText(text);
             }
-          });
-          microphoneHelper.closeInputStream();
-          listening = false;
+        });
+    }
+
+    private void enableMicButton() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mic.setEnabled(true);
+            }
+        });
+    }
+
+    private SpeechToText initSpeechToTextService() {
+        Authenticator authenticator = new IamAuthenticator(getString(R.string.speech_text_apikey));
+        SpeechToText service = new SpeechToText(authenticator);
+        service.setServiceUrl(getString(R.string.speech_text_url));
+        return service;
+    }
+
+    private TextToSpeech initTextToSpeechService() {
+        Authenticator authenticator = new IamAuthenticator(getString(R.string.text_speech_apikey));
+        TextToSpeech service = new TextToSpeech(authenticator);
+        service.setServiceUrl(getString(R.string.text_speech_url));
+        return service;
+    }
+
+    private LanguageTranslator initLanguageTranslatorService() {
+        Authenticator authenticator
+                = new IamAuthenticator(getString(R.string.language_translator_apikey));
+        LanguageTranslator service = new LanguageTranslator("2018-05-01", authenticator);
+        service.setServiceUrl(getString(R.string.language_translator_url));
+        return service;
+    }
+
+    private RecognizeOptions getRecognizeOptions(InputStream captureStream) {
+        return new RecognizeOptions.Builder()
+                .audio(captureStream)
+                .contentType(ContentType.OPUS.toString())
+                .model("en-US_BroadbandModel")
+                .interimResults(true)
+                .inactivityTimeout(2000)
+                .build();
+    }
+
+    private abstract class EmptyTextWatcher implements TextWatcher {
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
         }
-      }
-    });
 
-    translate.setOnClickListener(new View.OnClickListener() {
+        // assumes text is initially empty
+        private boolean isEmpty = true;
 
-      @Override
-      public void onClick(View v) {
-        new TranslationTask().execute(input.getText().toString());
-      }
-    });
-
-    translatedText.addTextChangedListener(new EmptyTextWatcher() {
-      @Override
-      public void onEmpty(boolean empty) {
-        if (empty) {
-          play.setEnabled(false);
-        } else {
-          play.setEnabled(true);
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+            if (s.length() == 0) {
+                isEmpty = true;
+                onEmpty(true);
+            } else if (isEmpty) {
+                isEmpty = false;
+                onEmpty(false);
+            }
         }
-      }
-    });
 
-    play.setEnabled(false);
-
-    play.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        new SynthesisTask().execute(translatedText.getText().toString());
-      }
-    });
-
-    gallery.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        galleryHelper.dispatchGalleryIntent();
-      }
-    });
-
-    camera.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        cameraHelper.dispatchTakePictureIntent();
-      }
-    });
-  }
-
-
-  private void showTranslation(final String translation) {
-    runOnUiThread(new Runnable() {
-      @Override
-      public void run() {
-        translatedText.setText(translation);
-      }
-    });
-  }
-
-  private void showError(final Exception e) {
-    runOnUiThread(new Runnable() {
-      @Override
-      public void run() {
-        Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
-        e.printStackTrace();
-        // Update the icon background
-        mic.setBackgroundColor(Color.LTGRAY);
-      }
-    });
-  }
-
-  private void showMicText(final String text) {
-    runOnUiThread(new Runnable() {
-      @Override
-      public void run() {
-        input.setText(text);
-      }
-    });
-  }
-
-  private void enableMicButton() {
-    runOnUiThread(new Runnable() {
-      @Override
-      public void run() {
-        mic.setEnabled(true);
-      }
-    });
-  }
-
-  private SpeechToText initSpeechToTextService() {
-    Authenticator authenticator = new IamAuthenticator(getString(R.string.speech_text_apikey));
-    SpeechToText service = new SpeechToText(authenticator);
-    service.setServiceUrl(getString(R.string.speech_text_url));
-    return service;
-  }
-
-  private TextToSpeech initTextToSpeechService() {
-    Authenticator authenticator = new IamAuthenticator(getString(R.string.text_speech_apikey));
-    TextToSpeech service = new TextToSpeech(authenticator);
-    service.setServiceUrl(getString(R.string.text_speech_url));
-    return service;
-  }
-
-  private LanguageTranslator initLanguageTranslatorService() {
-    Authenticator authenticator
-            = new IamAuthenticator(getString(R.string.language_translator_apikey));
-    LanguageTranslator service = new LanguageTranslator("2018-05-01", authenticator);
-    service.setServiceUrl(getString(R.string.language_translator_url));
-    return service;
-  }
-
-  private RecognizeOptions getRecognizeOptions(InputStream captureStream) {
-    return new RecognizeOptions.Builder()
-            .audio(captureStream)
-            .contentType(ContentType.OPUS.toString())
-            .model("en-US_BroadbandModel")
-            .interimResults(true)
-            .inactivityTimeout(2000)
-            .build();
-  }
-
-  private abstract class EmptyTextWatcher implements TextWatcher {
-    @Override
-    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-    // assumes text is initially empty
-    private boolean isEmpty = true;
-
-    @Override
-    public void onTextChanged(CharSequence s, int start, int before, int count) {
-      if (s.length() == 0) {
-        isEmpty = true;
-        onEmpty(true);
-      } else if (isEmpty) {
-        isEmpty = false;
-        onEmpty(false);
-      }
-    }
-
-    @Override
-    public void afterTextChanged(Editable s) {}
-
-    public abstract void onEmpty(boolean empty);
-  }
-
-  private class MicrophoneRecognizeDelegate extends BaseRecognizeCallback implements RecognizeCallback {
-    @Override
-    public void onTranscription(SpeechRecognitionResults speechResults) {
-      System.out.println(speechResults);
-      if (speechResults.getResults() != null && !speechResults.getResults().isEmpty()) {
-        String text = speechResults.getResults().get(0).getAlternatives().get(0).getTranscript();
-        showMicText(text);
-      }
-    }
-
-    @Override
-    public void onError(Exception e) {
-      try {
-        // This is critical to avoid hangs
-        // (see https://github.com/watson-developer-cloud/android-sdk/issues/59)
-        capture.close();
-      } catch (IOException e1) {
-        e1.printStackTrace();
-      }
-      showError(e);
-      enableMicButton();
-    }
-
-    @Override
-    public void onDisconnected() {
-      enableMicButton();
-    }
-  }
-
-  private class TranslationTask extends AsyncTask<String, Void, String> {
-
-    @Override
-    protected String doInBackground(String... params) {
-      TranslateOptions translateOptions = new TranslateOptions.Builder()
-              .addText(params[0])
-              .source(Language.ENGLISH)
-              .target(selectedTargetLanguage)
-              .build();
-      TranslationResult result
-              = translationService.translate(translateOptions).execute().getResult();
-      String firstTranslation = result.getTranslations().get(0).getTranslation();
-      showTranslation(firstTranslation);
-      return "Did translate";
-    }
-  }
-
-  private class SynthesisTask extends AsyncTask<String, Void, String> {
-    @Override
-    protected String doInBackground(String... params) {
-      SynthesizeOptions synthesizeOptions = new SynthesizeOptions.Builder()
-              .text(params[0])
-              .voice(SynthesizeOptions.Voice.EN_US_LISAVOICE)
-              .accept(HttpMediaType.AUDIO_WAV)
-              .build();
-      player.playStream(textService.synthesize(synthesizeOptions).execute().getResult());
-      return "Did synthesize";
-    }
-  }
-
-  /**
-   * On request permissions result.
-   *
-   * @param requestCode the request code
-   * @param permissions the permissions
-   * @param grantResults the grant results
-   */
-  @Override
-  public void onRequestPermissionsResult(int requestCode,
-                                         String[] permissions,
-                                         int[] grantResults) {
-    switch (requestCode) {
-      case CameraHelper.REQUEST_PERMISSION: {
-        // permission granted
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-          cameraHelper.dispatchTakePictureIntent();
+        @Override
+        public void afterTextChanged(Editable s) {
         }
-      }
-      case MicrophoneHelper.REQUEST_PERMISSION: {
-        if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-          Toast.makeText(this, "Permission to record audio denied", Toast.LENGTH_SHORT).show();
+
+        public abstract void onEmpty(boolean empty);
+    }
+
+    private class MicrophoneRecognizeDelegate extends BaseRecognizeCallback implements RecognizeCallback {
+        @Override
+        public void onTranscription(SpeechRecognitionResults speechResults) {
+            System.out.println(speechResults);
+            if (speechResults.getResults() != null && !speechResults.getResults().isEmpty()) {
+                String text = speechResults.getResults().get(0).getAlternatives().get(0).getTranscript();
+                showMicText(text);
+            }
         }
-      }
-    }
-  }
 
-  /**
-   * On activity result.
-   *
-   * @param requestCode the request code
-   * @param resultCode the result code
-   * @param data the data
-   */
-  @Override
-  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-    super.onActivityResult(requestCode, resultCode, data);
+        @Override
+        public void onError(Exception e) {
+            try {
+                // This is critical to avoid hangs
+                // (see https://github.com/watson-developer-cloud/android-sdk/issues/59)
+                capture.close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            showError(e);
+            enableMicButton();
+        }
 
-    if (requestCode == CameraHelper.REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-      loadedImage.setImageBitmap(cameraHelper.getBitmap(resultCode));
+        @Override
+        public void onDisconnected() {
+            enableMicButton();
+        }
     }
 
-    if (requestCode == GalleryHelper.PICK_IMAGE_REQUEST && resultCode == RESULT_OK) {
-      loadedImage.setImageBitmap(galleryHelper.getBitmap(resultCode, data));
+    private class TranslationTask extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... params) {
+            TranslateOptions translateOptions = new TranslateOptions.Builder()
+                    .addText(params[0])
+                    .source(Language.ENGLISH)
+                    .target(selectedTargetLanguage)
+                    .build();
+            TranslationResult result
+                    = translationService.translate(translateOptions).execute().getResult();
+            String firstTranslation = result.getTranslations().get(0).getTranslation();
+            showTranslation(firstTranslation);
+            return "Did translate";
+        }
     }
-  }
+
+    private class SynthesisTask extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... params) {
+            SynthesizeOptions synthesizeOptions = new SynthesizeOptions.Builder()
+                    .text(params[0])
+                    .voice(SynthesizeOptions.Voice.EN_US_LISAVOICE)
+                    .accept(HttpMediaType.AUDIO_WAV)
+                    .build();
+            player.playStream(textService.synthesize(synthesizeOptions).execute().getResult());
+            return "Did synthesize";
+        }
+    }
+
+    /**
+     * On request permissions result.
+     *
+     * @param requestCode  the request code
+     * @param permissions  the permissions
+     * @param grantResults the grant results
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String[] permissions,
+                                           int[] grantResults) {
+        switch (requestCode) {
+            case CameraHelper.REQUEST_PERMISSION: {
+                // permission granted
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    cameraHelper.dispatchTakePictureIntent();
+                }
+            }
+            case MicrophoneHelper.REQUEST_PERMISSION: {
+                if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Permission to record audio denied", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
+
+    /**
+     * On activity result.
+     *
+     * @param requestCode the request code
+     * @param resultCode  the result code
+     * @param data        the data
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == CameraHelper.REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            loadedImage.setImageBitmap(cameraHelper.getBitmap(resultCode));
+        }
+
+        if (requestCode == GalleryHelper.PICK_IMAGE_REQUEST && resultCode == RESULT_OK) {
+            loadedImage.setImageBitmap(galleryHelper.getBitmap(resultCode, data));
+        }
+    }
 }
